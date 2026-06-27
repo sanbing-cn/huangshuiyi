@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理者仪表板 - 股票系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 1.8em; }
+        .logout-btn {
+            padding: 8px 20px;
+            background: white;
+            color: #ff6b6b;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 12px 30px;
+            background: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            background: #ff6b6b;
+            color: white;
+        }
+        .section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: none;
+        }
+        .section.active { display: block; }
+        .section h2 {
+            color: #ff6b6b;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #ff6b6b;
+            color: white;
+        }
+        tr:hover { background: #f9f9f9; }
+        .btn {
+            padding: 6px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        .btn-edit { background: #4CAF50; color: white; }
+        .btn-delete { background: #f44336; color: white; }
+        .form-inline {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .form-inline input, .form-inline select {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            flex: 1;
+        }
+        .form-inline button {
+            padding: 10px 20px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            display: none;
+        }
+        .success { background: #efe; color: #3c3; border: 1px solid #cfc; }
+        .error { background: #fee; color: #c33; border: 1px solid #fcc; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚙️ 管理者后台</h1>
+        <a href="/logout" class="logout-btn">退出登录</a>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" onclick="showSection('users')">👥 用户管理</button>
+            <button class="tab" onclick="showSection('data')">📊 数据管理</button>
+            <button class="tab" onclick="showSection('query')">🔍 数据查询</button>
+        </div>
+
+        <!-- 用户管理 -->
+        <div id="usersSection" class="section active">
+            <h2>用户列表</h2>
+            <div class="form-inline" style="margin-bottom: 20px;">
+                <input type="text" id="searchUserInput" placeholder="搜索用户名或邮箱..." onkeypress="if(event.key==='Enter') searchUsers()">
+                <button onclick="searchUsers()">🔍 搜索用户</button>
+                <button onclick="loadUsers()" style="background: #999;">显示全部</button>
+            </div>
+            <table id="usersTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>用户名</th>
+                        <th>邮箱</th>
+                        <th>注册时间</th>
+                        <th>最后登录</th>
+                        <th>有搜索记录</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- 数据管理 -->
+        <div id="dataSection" class="section">
+            <h2>修改股票数据</h2>
+            <div id="message" class="message"></div>
+            <div class="form-inline">
+                <input type="text" id="stockCode" placeholder="股票代码">
+                <input type="date" id="date">
+                <select id="field">
+                    <option value="">选择字段</option>
+                    <option value="开盘价">开盘价</option>
+                    <option value="收盘价">收盘价</option>
+                    <option value="最高价">最高价</option>
+                    <option value="最低价">最低价</option>
+                    <option value="成交量">成交量</option>
+                    <option value="成交额">成交额</option>
+                </select>
+                <input type="number" id="value" placeholder="新值" step="0.01">
+                <button onclick="updateData()">更新</button>
+            </div>
+            
+            <h3 style="margin-top: 30px; color: #ff6b6b;">删除记录</h3>
+            <div class="form-inline">
+                <input type="text" id="deleteStockCode" placeholder="股票代码">
+                <input type="date" id="deleteDate">
+                <button onclick="deleteRecord()" style="background: #f44336;">删除</button>
+            </div>
+        </div>
+
+        <!-- 数据查询 -->
+        <div id="querySection" class="section">
+            <h2>查询股票数据</h2>
+            <div class="form-inline">
+                <input type="text" id="queryStockCode" placeholder="输入股票代码">
+                <button onclick="queryStockData()">查询</button>
+            </div>
+            <div id="queryResult" style="margin-top: 20px;"></div>
+        </div>
+    </div>
+
+    <script>
+        function showSection(section) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            
+            if (section === 'users') {
+                document.getElementById('usersSection').classList.add('active');
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                loadUsers();
+            } else if (section === 'data') {
+                document.getElementById('dataSection').classList.add('active');
+                document.querySelectorAll('.tab')[1].classList.add('active');
+            } else if (section === 'query') {
+                document.getElementById('querySection').classList.add('active');
+                document.querySelectorAll('.tab')[2].classList.add('active');
+            }
+        }
+        
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/admin/users');
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayUsers(result.data);
+                }
+            } catch (error) {
+                console.error('加载用户失败:', error);
+            }
+        }
+        
+        async function searchUsers() {
+            const keyword = document.getElementById('searchUserInput').value.trim();
+            if (!keyword) {
+                alert('请输入搜索关键词');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/search_users?keyword=${encodeURIComponent(keyword)}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayUsers(result.data);
+                }
+            } catch (error) {
+                console.error('搜索失败:', error);
+            }
+        }
+        
+        function displayUsers(users) {
+            const tbody = document.querySelector('#usersTable tbody');
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #999;">未找到用户</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>${user.用户名}</td>
+                    <td>${user.邮箱 || '-'}</td>
+                    <td>${user.注册时间}</td>
+                    <td>${user.最后登录 || '-'}</td>
+                    <td>${user.有搜索记录 ? '✅ 是' : '❌ 否'}</td>
+                    <td>
+                        ${user.用户名 !== 'admin' ? `
+                            <button class="btn btn-delete" onclick="deleteUser('${user.用户名}')">删除</button>
+                        ` : '<span style="color: #999;">不可删除</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        async function deleteUser(username) {
+            if (!confirm(`确定要删除用户 "${username}" 吗？\n\n此操作将：\n1. 删除用户账号\n2. 删除该用户的所有搜索记录\n\n此操作不可恢复！`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/delete_user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(result.message);
+                    // 重新加载用户列表
+                    loadUsers();
+                } else {
+                    alert('删除失败: ' + result.error);
+                }
+            } catch (error) {
+                console.error('删除失败:', error);
+                alert('删除失败，请重试');
+            }
+        }
+        
+        async function updateData() {
+            const stockCode = document.getElementById('stockCode').value;
+            const date = document.getElementById('date').value;
+            const field = document.getElementById('field').value;
+            const value = document.getElementById('value').value;
+            
+            if (!stockCode || !date || !field || !value) {
+                showMessage('请填写所有字段', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/update_stock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        股票代码: stockCode,
+                        日期: date,
+                        字段: field,
+                        值: parseFloat(value)
+                    })
+                });
+                
+                const result = await response.json();
+                showMessage(result.message || result.error, result.success ? 'success' : 'error');
+            } catch (error) {
+                showMessage('操作失败', 'error');
+            }
+        }
+        
+        async function deleteRecord() {
+            const stockCode = document.getElementById('deleteStockCode').value;
+            const date = document.getElementById('deleteDate').value;
+            
+            if (!stockCode || !date) {
+                showMessage('请填写股票代码和日期', 'error');
+                return;
+            }
+            
+            if (!confirm('确定要删除这条记录吗？此操作不可恢复！')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/delete_record', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        股票代码: stockCode,
+                        日期: date
+                    })
+                });
+                
+                const result = await response.json();
+                showMessage(result.message || result.error, result.success ? 'success' : 'error');
+            } catch (error) {
+                showMessage('删除失败', 'error');
+            }
+        }
+        
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
+            setTimeout(() => messageDiv.style.display = 'none', 3000);
+        }
+        
+        async function queryStockData() {
+            const stockCode = document.getElementById('queryStockCode').value.trim();
+            if (!stockCode) {
+                alert('请输入股票代码');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/stock_data/${stockCode}`);
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    const data = result.data;
+                    const recentData = data.slice(-10); // 显示最近10条
+                    
+                    let html = `
+                        <h3 style="color: #ff6b6b; margin-bottom: 15px;">${stockCode} 最近10条数据</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>开盘价</th>
+                                    <th>收盘价</th>
+                                    <th>最高价</th>
+                                    <th>最低价</th>
+                                    <th>成交量</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    recentData.forEach(record => {
+                        html += `
+                            <tr>
+                                <td>${record.日期}</td>
+                                <td>${record.开盘价 || '-'}</td>
+                                <td>${record.收盘价 || '-'}</td>
+                                <td>${record.最高价 || '-'}</td>
+                                <td>${record.最低价 || '-'}</td>
+                                <td>${record.成交量 || '-'}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                    html += `<p style="margin-top: 15px; color: #999;">共 ${data.length} 条记录</p>`;
+                    
+                    document.getElementById('queryResult').innerHTML = html;
+                } else {
+                    document.getElementById('queryResult').innerHTML = '<p style="color: #f44336;">未找到数据</p>';
+                }
+            } catch (error) {
+                console.error('查询失败:', error);
+                document.getElementById('queryResult').innerHTML = '<p style="color: #f44336;">查询失败</p>';
+            }
+        }
+        
+        // 页面加载时获取用户列表
+        window.onload = loadUsers;
+    </script>
+</body>
+</html>

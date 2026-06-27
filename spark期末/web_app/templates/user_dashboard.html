@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户仪表板 - 股票系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            color: #667eea;
+            font-size: 1.8em;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .username {
+            color: #333;
+            font-weight: bold;
+        }
+        .profile-link {
+            padding: 8px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .profile-link:hover {
+            background: #764ba2;
+        }
+        .logout-btn {
+            padding: 8px 20px;
+            background: #ff4d4f;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .search-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .search-box input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1.1em;
+        }
+        .search-box button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+        }
+        .search-results {
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+        .search-result-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+        }
+        .search-result-item:hover {
+            background: #f0f0f0;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .chart-title {
+            font-size: 1.5em;
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        #trendChart, #volumeChart, #percentageChart {
+            width: 100%;
+            height: 400px;
+        }
+        .welcome-message {
+            text-align: center;
+            color: white;
+            padding: 50px;
+            font-size: 1.3em;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📈 股票数据分析系统 - 用户端</h1>
+        <div class="user-info">
+            <span class="username">欢迎，{{ username }}</span>
+            <a href="/user/profile" class="profile-link">👤 个人资料</a>
+            <a href="/logout" class="logout-btn">退出登录</a>
+        </div>
+    </div>
+
+    <div class="search-section">
+        <h2 style="color: #667eea; margin-bottom: 15px;">🔍 搜索股票</h2>
+        <div class="search-box">
+            <input type="text" id="stockSearch" placeholder="输入股票名称或代码进行搜索..." oninput="handleSearch()">
+            <button onclick="loadStockData()">搜索</button>
+        </div>
+        <div id="searchResults" class="search-results"></div>
+    </div>
+
+    <div id="monthSelector" class="search-section" style="display: none;">
+        <h2 style="color: #667eea; margin-bottom: 15px;">📅 选择月份</h2>
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <select id="monthSelect" onchange="changeMonth()" style="padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; flex: 1;">
+                <!-- 月份选项将通过JavaScript动态生成 -->
+            </select>
+            <button onclick="resetToAllData()" style="padding: 10px 20px; background: #ff4d4f; color: white; border: none; border-radius: 8px; cursor: pointer;">查看全部数据</button>
+        </div>
+    </div>
+
+    <div class="search-section">
+        <h2 style="color: #667eea; margin-bottom: 15px;">📜 历史查询记录</h2>
+        <div id="historyList" style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <p style="color: #999;">加载中...</p>
+        </div>
+    </div>
+
+    <div id="chartsSection" style="display: none;">
+        <div class="chart-container">
+            <div class="chart-title">📊 价格走势与移动平均线</div>
+            <div id="trendChart"></div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">📈 近30天涨跌幅百分比图</div>
+            <div id="percentageChart"></div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">📉 成交量分析</div>
+            <div id="volumeChart"></div>
+        </div>
+    </div>
+
+    <div id="welcomeMessage" class="welcome-message">
+        👆 请在上方搜索框输入股票代码开始查询
+    </div>
+
+    <script>
+        let trendChart, volumeChart, percentageChart;
+        let allStocks = [];
+        let currentStockCode = '';
+        let currentStockName = '';
+        let currentMonth = ''; // 当前选择的月份
+        
+        function initCharts() {
+            trendChart = echarts.init(document.getElementById('trendChart'));
+            volumeChart = echarts.init(document.getElementById('volumeChart'));
+            percentageChart = echarts.init(document.getElementById('percentageChart'));
+        }
+        
+        async function loadStockList() {
+            try {
+                const response = await fetch('/api/stock_list');
+                const result = await response.json();
+                if (result.success) {
+                    allStocks = result.data;
+                }
+            } catch (error) {
+                console.error('加载股票列表失败:', error);
+            }
+        }
+        
+        async function handleSearch() {
+            const searchTerm = document.getElementById('stockSearch').value.trim();
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (!searchTerm) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+            
+            try {
+                // 调用后端API进行模糊搜索
+                const response = await fetch(`/api/search_stocks?keyword=${encodeURIComponent(searchTerm)}`);
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    resultsDiv.innerHTML = result.data.map(stock => `
+                        <div class="search-result-item" onclick="selectStock('${stock.code}', '${stock.name}')">
+                            <strong>${stock.name}</strong> (${stock.code})
+                        </div>
+                    `).join('');
+                } else {
+                    resultsDiv.innerHTML = '<div class="search-result-item">未找到匹配的股票</div>';
+                }
+                
+                resultsDiv.style.display = 'block';
+            } catch (error) {
+                console.error('搜索失败:', error);
+                resultsDiv.innerHTML = '<div class="search-result-item">搜索失败，请重试</div>';
+                resultsDiv.style.display = 'block';
+            }
+        }
+        
+        function selectStock(code, name) {
+            document.getElementById('stockSearch').value = name || code;
+            document.getElementById('searchResults').style.display = 'none';
+            currentStockCode = code;
+            currentStockName = name;
+            loadStockData();
+        }
+        
+        async function loadSearchHistory() {
+            try {
+                const response = await fetch('/api/user/history');
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    const historyList = document.getElementById('historyList');
+                    historyList.innerHTML = result.data.map(record => `
+                        <div style="position: relative; padding: 10px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                  color: white; border-radius: 8px; cursor: pointer; transition: transform 0.2s;"
+                             onmouseover="this.style.transform='scale(1.05)'" 
+                             onmouseout="this.style.transform='scale(1)'">
+                            <div onclick="quickSearch('${record.股票代码}', '${record.股票名称 || ''}')" style="cursor: pointer;">
+                                <div style="font-weight: bold; font-size: 1.1em;">${record.股票名称 || record.股票代码}</div>
+                                <div style="font-size: 0.8em; margin-top: 5px;">
+                                    ${record.搜索次数}次 | ${record.最后搜索时间.substring(0, 10)}
+                                </div>
+                            </div>
+                            <button onclick="event.stopPropagation(); deleteHistory('${record.股票代码}', '${record.股票名称 || record.股票代码}')" 
+                                    style="position: absolute; top: 5px; right: 5px; background: rgba(255, 255, 255, 0.3); 
+                                           border: none; border-radius: 50%; width: 24px; height: 24px; 
+                                           cursor: pointer; font-size: 16px; line-height: 24px; text-align: center;
+                                           color: white; padding: 0;"
+                                    title="删除此记录"
+                                    onmouseover="this.style.background='rgba(255, 77, 79, 0.8)'"
+                                    onmouseout="this.style.background='rgba(255, 255, 255, 0.3)'">
+                                ×
+                            </button>
+                        </div>
+                    `).join('');
+                } else {
+                    document.getElementById('historyList').innerHTML = '<p style="color: #999;">暂无搜索历史</p>';
+                }
+            } catch (error) {
+                console.error('加载历史失败:', error);
+                document.getElementById('historyList').innerHTML = '<p style="color: #999;">加载失败</p>';
+            }
+        }
+        
+        function quickSearch(stockCode, stockName) {
+            currentStockCode = stockCode;
+            currentStockName = stockName;
+            document.getElementById('stockSearch').value = stockName || stockCode;
+            loadStockData();
+        }
+        
+        async function deleteHistory(stockCode, stockName) {
+            if (!confirm(`确定要删除 "${stockName}" 的搜索记录吗?`)) {
+                return;
+            }
+                    
+            try {
+                const response = await fetch('/api/user/history', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stock_code: stockCode })
+                });
+                        
+                const result = await response.json();
+                        
+                if (result.success) {
+                    // 重新加载搜索历史
+                    loadSearchHistory();
+                }
+            } catch (error) {
+                console.error('删除失败:', error);
+            }
+        }
+        
+        async function loadStockData() {
+            const stockCode = currentStockCode || document.getElementById('stockSearch').value.trim();
+            if (!stockCode) {
+                alert('请输入股票名称或代码');
+                return;
+            }
+            
+            try {
+                // 构建API URL，包含月份参数
+                let apiUrl = `/api/trend_data/${stockCode}`;
+                if (currentMonth) {
+                    apiUrl += `?month=${currentMonth}`;
+                }
+                
+                const response = await fetch(apiUrl);
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('chartsSection').style.display = 'block';
+                    document.getElementById('welcomeMessage').style.display = 'none';
+                    
+                    // 显示月份选择器
+                    document.getElementById('monthSelector').style.display = 'block';
+                    
+                    // 生成月份选项（如果是第一次加载）
+                    if (!currentMonth && result.data.dates.length > 0) {
+                        generateMonthOptions(result.data.dates);
+                    }
+                    
+                    // 容器从 display:none 变为可见后，必须重新计算图表尺寸
+                    setTimeout(() => {
+                        trendChart.resize();
+                        percentageChart.resize();
+                        volumeChart.resize();
+                    }, 50);
+                    
+                    displayTrendChart(result.data, stockCode);
+                    displayPercentageChart(result.data, stockCode);
+                    displayVolumeChart(result.data, stockCode);
+                    
+                    // 保存搜索历史（包含股票名称）
+                    saveSearchHistory(stockCode, result.data.stockName);
+                } else {
+                    alert(result.error || '未找到数据');
+                }
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                alert('加载数据失败，请重试');
+            }
+        }
+        
+        function displayTrendChart(data, stockCode) {
+            const stockName = data.stockName || stockCode;
+            const option = {
+                title: { text: `${stockName}(${stockCode}) 价格走势`, left: 'center' },
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['收盘价', 'MA5', 'MA10', 'MA20'], top: 30 },
+                xAxis: { type: 'category', data: data.dates, axisLabel: { rotate: 45 } },
+                yAxis: { type: 'value', name: '价格 (元)' },
+                series: [
+                    { name: '收盘价', type: 'line', data: data.prices, smooth: true },
+                    { name: 'MA5', type: 'line', data: data.ma5, lineStyle: { type: 'dashed' } },
+                    { name: 'MA10', type: 'line', data: data.ma10, lineStyle: { type: 'dashed' } },
+                    { name: 'MA20', type: 'line', data: data.ma20, lineStyle: { type: 'dashed' } }
+                ]
+            };
+            trendChart.setOption(option, true);
+        }
+        
+        function displayPercentageChart(data, stockCode) {
+            const stockName = data.stockName || stockCode;
+            // 计算相对于第一天的涨跌幅百分比
+            const basePrice = data.prices[0] || 1;
+            const percentages = data.prices.map(price => {
+                return ((price - basePrice) / basePrice * 100).toFixed(2);
+            });
+            
+            // 获取最近30天的数据
+            const recentDates = data.dates.slice(-30);
+            const recentPercentages = percentages.slice(-30);
+            
+            const option = {
+                title: { text: `${stockName}(${stockCode}) 近30天涨跌幅百分比`, left: 'center' },
+                tooltip: { 
+                    trigger: 'axis',
+                    formatter: function(params) {
+                        return params[0].name + '<br/>' + 
+                               params[0].seriesName + ': ' + params[0].value + '%';
+                    }
+                },
+                xAxis: { 
+                    type: 'category', 
+                    data: recentDates, 
+                    axisLabel: { rotate: 45 }
+                },
+                yAxis: { 
+                    type: 'value', 
+                    name: '涨跌幅 (%)',
+                    axisLabel: { formatter: '{value}%' }
+                },
+                series: [{
+                    name: '涨跌幅',
+                    type: 'line',
+                    data: recentPercentages,
+                    smooth: true,
+                    itemStyle: {
+                        color: function(params) {
+                            return params.value >= 0 ? '#ff4d4f' : '#52c41a';
+                        }
+                    },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(255, 77, 79, 0.3)' },
+                            { offset: 1, color: 'rgba(82, 196, 26, 0.1)' }
+                        ])
+                    },
+                    markLine: {
+                        data: [{ yAxis: 0 }],
+                        lineStyle: { color: '#999', type: 'dashed' }
+                    }
+                }]
+            };
+            percentageChart.setOption(option, true);
+        }
+        
+        function displayVolumeChart(data, stockCode) {
+            const stockName = data.stockName || stockCode;
+            const option = {
+                title: { text: `${stockName}(${stockCode}) 成交量`, left: 'center' },
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: data.dates, axisLabel: { rotate: 45 } },
+                yAxis: { type: 'value', name: '成交量' },
+                series: [{
+                    name: '成交量',
+                    type: 'bar',
+                    data: data.volumes,
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#667eea' },
+                            { offset: 1, color: '#764ba2' }
+                        ])
+                    }
+                }]
+            };
+            volumeChart.setOption(option, true);
+        }
+        
+        async function saveSearchHistory(stockCode, stockName) {
+            try {
+                await fetch('/api/user/search_history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        stock_code: stockCode,
+                        stock_name: stockName || ''
+                    })
+                });
+            } catch (error) {
+                console.error('保存历史失败:', error);
+            }
+        }
+        
+        // 生成月份选项
+        function generateMonthOptions(dates) {
+            const monthSelect = document.getElementById('monthSelect');
+            const months = new Set();
+            
+            // 从日期中提取所有唯一的月份
+            dates.forEach(date => {
+                if (date && date.length >= 7) {
+                    const month = date.substring(0, 7); // 格式：YYYY-MM
+                    months.add(month);
+                }
+            });
+            
+            // 转换为数组并排序（最新的月份在前）
+            const sortedMonths = Array.from(months).sort().reverse();
+            
+            // 生成选项
+            if (sortedMonths.length > 0) {
+                monthSelect.innerHTML = '<option value="">-- 选择月份 --</option>' +
+                    sortedMonths.map(month => `<option value="${month}">${month}</option>`).join('');
+            }
+        }
+        
+        // 切换月份
+        function changeMonth() {
+            const selectedMonth = document.getElementById('monthSelect').value;
+            currentMonth = selectedMonth;
+            
+            if (selectedMonth) {
+                loadStockData();
+            }
+        }
+        
+        // 重置为查看所有数据
+        function resetToAllData() {
+            currentMonth = '';
+            document.getElementById('monthSelect').value = '';
+            loadStockData();
+        }
+        
+        window.onload = function() {
+            initCharts();
+            loadStockList();
+            loadSearchHistory();
+            
+            window.addEventListener('resize', () => {
+                trendChart.resize();
+                volumeChart.resize();
+                percentageChart.resize();
+            });
+        };
+    </script>
+</body>
+</html>
